@@ -76,11 +76,11 @@ def query_fema_website(state_code):
     url = "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
     
     # Calculate the date 30 days ago from today
-    thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    thirty_days_ago = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     
     params = {
-        "$orderby": "declarationType asc",
-        "$filter": f"declarationDate ge {thirty_days_ago} and state eq '{state_code}'",
+        "$orderby": "declarationDate desc",
+        "$filter": f"declarationDate le {thirty_days_ago} and state eq '{state_code}'",
         "$top": 100
     }
 
@@ -179,6 +179,42 @@ def generateCurrentDisasters(req: func.HttpRequest) -> func.HttpResponse:
 
     return func.HttpResponse(json.dumps(disaster_links), status_code=200)
 
+@app.route(route="getFemaData")
+def getFemaData(req: func.HttpRequest) -> func.HttpResponse:
+        params = req.params
+        body = params.get('context')
+        ## query fema page and parse current disasters, return json object of current disasters for showing in frontend ##
+    
+        logging.info('Python HTTP trigger function processed a request.')
+
+        #body = {'context': 'Kentucky Severe Storms'}
+        # body = user_input.get_json()
+        body = {'context': body}
+
+        if body:
+            ## submit body text to context generator ##
+
+            event_info, location, event_type = extract_information(body['context'])
+    
+            ## submit body text to prompt-flow for query generation ##
+    
+            if location:
+                fema_info = query_fema_website(location)
+                generate_index_json(fema_info)
+                print("Index JSON generated successfully.")
+            else:
+                print("Could not extract a valid location from the input.")
+    
+            return func.HttpResponse(json.dumps(fema_info), status_code=200)
+    
+        return func.HttpResponse(
+                "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
+                status_code=200
+        )
+ 
+import requests
+import json
+
 
 # def contextOrchestrator(req: func.HttpRequest) -> func.HttpResponse:
 #     logging.info('Python HTTP trigger function processed a request.')
@@ -189,8 +225,12 @@ def generateCurrentDisasters(req: func.HttpRequest) -> func.HttpResponse:
         
 #         event_info, location, event_type = extract_information(body)
         
+#         context_response_body = body
+
 #         ## submit body text to prompt-flow for query generation ##
 #         if response.status_code == 200:
+
+
 
 #             generated_query_response = requests.post(AZ_FUNC_PROMPTFLOW_ENDPOINT, headers={"x-functions-key": AZ_FUNC_PROMPTFLOW_KEY}, json=context_response_body)
 
